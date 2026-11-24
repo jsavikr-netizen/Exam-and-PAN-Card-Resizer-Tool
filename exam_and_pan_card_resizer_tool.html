@@ -1,0 +1,1776 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Exam and PAN Card Resizer Tool</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <style>
+    :root {
+      --bg-pink: #ff2e93;
+      --bg-pink-deep: #e01b7b;
+      --title-yellow: #ffe600;
+      --card-blue: #3b66f5;
+      --card-purple: #7c3aed;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background-color: var(--bg-pink);
+      color: #1e1b4b;
+      min-height: 100vh;
+    }
+    .brand-title {
+      color: var(--title-yellow);
+      font-weight: 900;
+      letter-spacing: -0.02em;
+      line-height: 0.96;
+      text-shadow: 0 3px 0 rgba(168, 12, 88, 0.35);
+    }
+    .exam-card {
+      background: #ffffff;
+      border-radius: 20px;
+      box-shadow: 0 10px 25px rgba(145, 8, 74, 0.22);
+      transition: transform 0.18s ease, box-shadow 0.18s ease;
+      cursor: pointer;
+    }
+    .exam-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 16px 32px rgba(145, 8, 74, 0.32);
+    }
+    .exam-card:active {
+      transform: translateY(-1px);
+    }
+    .card-label-gradient {
+      background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .checker-bg {
+      background-image:
+        linear-gradient(45deg, #f1f5f9 25%, transparent 25%),
+        linear-gradient(-45deg, #f1f5f9 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #f1f5f9 75%),
+        linear-gradient(-45deg, transparent 75%, #f1f5f9 75%);
+      background-size: 16px 16px;
+      background-position: 0 0, 0 8px, 8px -8px, -8px 0px;
+    }
+    /* Hide scrollbar for horizontal tab pills on mobile */
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+  </style>
+</head>
+<body class="antialiased">
+
+  <!-- Toast Container -->
+  <div id="toastContainer" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+  <!-- Top Navigation / Header -->
+  <header class="w-full max-w-6xl mx-auto px-4 sm:px-6 pt-5 pb-3 flex flex-wrap items-center justify-between gap-3">
+    <div id="homeLogoBtn" role="button" tabindex="0" class="flex items-center gap-3 cursor-pointer select-none">
+      <div>
+        <h1 class="brand-title text-2xl sm:text-4xl uppercase">
+          Exam and PAN Card<br class="sm:hidden" /> Resizer Tool
+        </h1>
+        <p class="text-white/90 text-xs sm:text-sm font-semibold mt-1">
+          100% Private Browser Resizer &bull; RRB, SSC &amp; PAN Card Specs
+        </p>
+      </div>
+    </div>
+
+    <div class="flex items-center gap-2">
+      <button id="backToHomeBtn" type="button" class="hidden px-4 py-2 rounded-full bg-white text-pink-700 font-bold text-sm shadow-md hover:bg-yellow-300 hover:text-pink-900 transition">
+        &larr; All Exams
+      </button>
+      <button id="openCustomBtn" type="button" class="px-4 py-2 rounded-full bg-yellow-300 text-pink-950 font-extrabold text-xs sm:text-sm shadow-md hover:bg-yellow-200 transition">
+        Custom Resizer
+      </button>
+    </div>
+  </header>
+
+  <!-- HOME VIEW: Exam Grid matching mockup -->
+  <main id="homeView" class="w-full max-w-6xl mx-auto px-4 sm:px-6 pb-14 pt-2">
+    <!-- Filter Bar -->
+    <div class="flex flex-wrap items-center justify-between gap-3 mb-6">
+      <div class="flex items-center gap-2 overflow-x-auto no-scrollbar py-1" id="categoryFilterBar">
+        <button data-cat="all" class="filter-pill px-4 py-1.5 rounded-full text-xs sm:text-sm font-bold bg-white text-pink-700 shadow">All (9)</button>
+        <button data-cat="rrb" class="filter-pill px-4 py-1.5 rounded-full text-xs sm:text-sm font-bold bg-pink-700/60 text-white hover:bg-white/25 transition">RRB / RPF</button>
+        <button data-cat="ssc" class="filter-pill px-4 py-1.5 rounded-full text-xs sm:text-sm font-bold bg-pink-700/60 text-white hover:bg-white/25 transition">SSC</button>
+        <button data-cat="pan" class="filter-pill px-4 py-1.5 rounded-full text-xs sm:text-sm font-bold bg-pink-700/60 text-white hover:bg-white/25 transition">PAN Card</button>
+      </div>
+      <div class="relative w-full sm:w-64">
+        <input id="examSearchInput" type="text" placeholder="Search exam (e.g. NTPC, CGL, PAN)..."
+          class="w-full px-4 py-2 rounded-full bg-white/95 text-slate-800 placeholder-slate-400 text-sm font-medium shadow focus:outline-none focus:ring-2 focus:ring-yellow-300" />
+      </div>
+    </div>
+
+    <!-- Cards Grid -->
+    <div id="examGrid" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5">
+      <!-- Cards injected by JS -->
+    </div>
+
+    <!-- Quick Spec Reference Table Toggle -->
+    <div class="mt-10 bg-white/95 rounded-2xl shadow-xl p-4 sm:p-6">
+      <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
+        <div>
+          <h2 class="text-lg sm:text-xl font-extrabold text-slate-900">Quick Specification Reference</h2>
+          <p class="text-xs sm:text-sm text-slate-600">Click any row to open its pre-configured resizer immediately.</p>
+        </div>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse text-xs sm:text-sm">
+          <thead>
+            <tr class="border-b-2 border-slate-200 text-slate-700">
+              <th class="py-2.5 pr-3 font-bold">Exam / Portal</th>
+              <th class="py-2.5 px-3 font-bold">Photograph</th>
+              <th class="py-2.5 px-3 font-bold">Signature</th>
+              <th class="py-2.5 pl-3 font-bold">Supporting Doc</th>
+            </tr>
+          </thead>
+          <tbody id="specSummaryTableBody" class="divide-y divide-slate-100">
+            <!-- Rows injected by JS -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+  <!-- WORKSPACE VIEW: Resizer Studio -->
+  <section id="workspaceView" class="hidden w-full max-w-6xl mx-auto px-4 sm:px-6 pb-16 pt-2">
+    <div class="bg-white rounded-3xl shadow-2xl overflow-hidden">
+      <!-- Exam Header Banner -->
+      <div class="bg-gradient-to-r from-indigo-700 via-blue-700 to-violet-700 text-white p-5 sm:p-6 flex flex-wrap items-center justify-between gap-4">
+        <div class="flex items-center gap-4">
+          <div id="wsExamIcon" class="w-14 h-14 bg-white rounded-2xl p-2 flex items-center justify-center shrink-0 shadow"></div>
+          <div>
+            <div class="flex flex-wrap items-center gap-2">
+              <h2 id="wsExamTitle" class="text-xl sm:text-2xl font-black tracking-tight">Exam Name</h2>
+              <span id="wsExamCategoryBadge" class="px-2.5 py-0.5 rounded-full bg-yellow-300 text-indigo-950 text-xs font-extrabold uppercase"></span>
+            </div>
+            <p id="wsExamSubtitle" class="text-indigo-100 text-xs sm:text-sm mt-0.5"></p>
+          </div>
+        </div>
+
+        <!-- Quick Exam Switcher -->
+        <div class="flex items-center gap-2">
+          <label for="wsExamSwitcher" class="text-xs font-semibold text-indigo-200 hidden sm:inline">Switch:</label>
+          <select id="wsExamSwitcher" class="bg-white/15 border border-white/30 text-white text-sm font-semibold rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-yellow-300">
+          </select>
+        </div>
+      </div>
+
+      <!-- PAN Portal Sub-Toggle (Only visible for PAN Card) -->
+      <div id="panPortalBar" class="hidden bg-amber-50 border-b border-amber-200 px-5 py-3 flex flex-wrap items-center justify-between gap-3">
+        <div class="flex items-center gap-2">
+          <span class="text-xs sm:text-sm font-bold text-amber-900">Select PAN Portal:</span>
+          <div class="inline-flex rounded-xl bg-amber-200/70 p-1">
+            <button id="panProteanBtn" type="button" class="px-3 py-1 rounded-lg text-xs sm:text-sm font-bold bg-white text-indigo-700 shadow">Protean (NSDL)</button>
+            <button id="panUtiBtn" type="button" class="px-3 py-1 rounded-lg text-xs sm:text-sm font-bold text-amber-900 hover:bg-white/50">UTIITSL</button>
+          </div>
+        </div>
+        <div class="text-xs font-semibold text-amber-800 bg-amber-100 px-3 py-1.5 rounded-lg border border-amber-200">
+          New 2026 Physical Form Rule (e.g. Form 93): Physical photo size is <strong>4.5 cm &times; 3.5 cm</strong>
+        </div>
+      </div>
+
+      <!-- Mode Tabs: Photo | Signature | Supporting Doc -->
+      <div class="border-b border-slate-200 bg-slate-50 px-4 sm:px-6 flex items-center gap-2 overflow-x-auto no-scrollbar">
+        <button data-mode="photo" class="mode-tab py-3.5 px-4 text-sm font-bold border-b-2 border-indigo-600 text-indigo-700 whitespace-nowrap">
+          Photograph
+        </button>
+        <button data-mode="signature" class="mode-tab py-3.5 px-4 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-800 whitespace-nowrap">
+          Signature
+        </button>
+        <button data-mode="document" class="mode-tab py-3.5 px-4 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-800 whitespace-nowrap">
+          Supporting Document (PDF/JPG)
+        </button>
+      </div>
+
+      <!-- Main Workspace Body -->
+      <div class="p-5 sm:p-7 grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+        <!-- Left Column: Official Rules & Settings -->
+        <div class="lg:col-span-5 flex flex-col gap-5">
+          <!-- Official Spec Card -->
+          <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <div class="flex items-center justify-between gap-2 mb-2">
+              <h3 class="text-sm font-extrabold text-slate-900 uppercase tracking-wide">Official Specification</h3>
+              <span id="specStatusPill" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800">Upload Required</span>
+            </div>
+            <p id="specDetailsText" class="text-sm text-slate-700 leading-relaxed"></p>
+            <div id="specExtraBox" class="mt-3 hidden p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900 font-medium leading-relaxed"></div>
+
+            <!-- Dimension Conflict / Preset Variant Selector (e.g. SSC CGL/GD 4x2 vs 6x2 cm, ALP 140x60 vs 140x80) -->
+            <div id="variantSelectorBox" class="hidden mt-3 pt-3 border-t border-slate-200">
+              <label class="block text-xs font-bold text-slate-700 mb-1.5">Choose Dimension Variant:</label>
+              <div id="variantButtons" class="flex flex-wrap gap-2"></div>
+            </div>
+          </div>
+
+          <!-- Upload Dropzone -->
+          <div id="dropZone" class="rounded-2xl border-2 border-dashed border-indigo-300 bg-indigo-50/50 hover:bg-indigo-50 transition p-6 text-center cursor-pointer">
+            <input id="fileInput" type="file" accept="image/*" class="hidden" />
+            <div class="mx-auto w-12 h-12 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center mb-3">
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+              </svg>
+            </div>
+            <p class="text-sm font-bold text-slate-800" id="dropZoneTitle">Drop your image here or click to browse</p>
+            <p class="text-xs text-slate-500 mt-1" id="dropZoneHint">Supports JPG, JPEG, PNG, WEBP</p>
+          </div>
+
+          <!-- Resizer Controls -->
+          <div class="rounded-2xl border border-slate-200 p-4 space-y-4">
+            <div class="flex items-center justify-between">
+              <h3 class="text-sm font-extrabold text-slate-900 uppercase tracking-wide">Resize &amp; Compression Settings</h3>
+              <button id="resetPresetBtn" type="button" class="text-xs font-bold text-indigo-600 hover:underline">Reset to Exam Preset</button>
+            </div>
+
+            <!-- Image-specific controls -->
+            <div id="imageControls" class="space-y-3">
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="block text-xs font-bold text-slate-600 mb-1" for="ctrlWidth">Width (px)</label>
+                  <input id="ctrlWidth" type="number" min="20" max="4000" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm font-semibold focus:ring-2 focus:ring-indigo-500 focus:outline-none" />
+                </div>
+                <div>
+                  <label class="block text-xs font-bold text-slate-600 mb-1" for="ctrlHeight">Height (px)</label>
+                  <input id="ctrlHeight" type="number" min="20" max="4000" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm font-semibold focus:ring-2 focus:ring-indigo-500 focus:outline-none" />
+                </div>
+              </div>
+
+              <div class="grid grid-cols-3 gap-2">
+                <div>
+                  <label class="block text-xs font-bold text-slate-600 mb-1" for="ctrlMinKb">Min KB</label>
+                  <input id="ctrlMinKb" type="number" min="1" max="5000" class="w-full px-2.5 py-2 rounded-xl border border-slate-300 text-sm font-semibold focus:ring-2 focus:ring-indigo-500 focus:outline-none" />
+                </div>
+                <div>
+                  <label class="block text-xs font-bold text-slate-600 mb-1" for="ctrlMaxKb">Max KB</label>
+                  <input id="ctrlMaxKb" type="number" min="2" max="10000" class="w-full px-2.5 py-2 rounded-xl border border-slate-300 text-sm font-semibold focus:ring-2 focus:ring-indigo-500 focus:outline-none" />
+                </div>
+                <div>
+                  <label class="block text-xs font-bold text-slate-600 mb-1" for="ctrlDpi">DPI</label>
+                  <input id="ctrlDpi" type="number" min="72" max="600" class="w-full px-2.5 py-2 rounded-xl border border-slate-300 text-sm font-semibold focus:ring-2 focus:ring-indigo-500 focus:outline-none" />
+                </div>
+              </div>
+
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="block text-xs font-bold text-slate-600 mb-1" for="ctrlFormat">Output Format</label>
+                  <select id="ctrlFormat" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm font-semibold bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                    <option value="image/jpeg">JPEG / JPG</option>
+                    <option value="image/png">PNG</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-xs font-bold text-slate-600 mb-1" for="ctrlFitMode">Fit Mode</label>
+                  <select id="ctrlFitMode" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm font-semibold bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                    <option value="contain">Fit Whole (White BG)</option>
+                    <option value="cover">Fill &amp; Center Crop</option>
+                    <option value="stretch">Exact Stretch</option>
+                  </select>
+                </div>
+              </div>
+
+              <!-- Signature / B&W Enhancer -->
+              <div class="flex flex-wrap items-center gap-4 pt-1">
+                <label class="inline-flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-700">
+                  <input id="ctrlBwToggle" type="checkbox" class="rounded text-indigo-600 focus:ring-indigo-500" />
+                  Black &amp; White / High-Contrast Ink
+                </label>
+                <label class="inline-flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-700">
+                  <input id="ctrlAutoSizeToggle" type="checkbox" checked class="rounded text-indigo-600 focus:ring-indigo-500" />
+                  Auto-hit Target KB
+                </label>
+              </div>
+
+              <div id="manualQualityBox" class="hidden">
+                <div class="flex justify-between text-xs font-bold text-slate-600 mb-1">
+                  <span>JPEG Quality</span>
+                  <span id="manualQualityVal">85%</span>
+                </div>
+                <input id="ctrlQuality" type="range" min="10" max="100" value="85" class="w-full accent-indigo-600" />
+              </div>
+            </div>
+
+            <!-- Document (PDF) specific controls -->
+            <div id="docControls" class="hidden space-y-3">
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="block text-xs font-bold text-slate-600 mb-1" for="docMaxKb">Max PDF Size (KB)</label>
+                  <input id="docMaxKb" type="number" min="20" max="10000" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm font-semibold focus:ring-2 focus:ring-indigo-500 focus:outline-none" />
+                </div>
+                <div>
+                  <label class="block text-xs font-bold text-slate-600 mb-1" for="docDpi">Render DPI</label>
+                  <select id="docDpi" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm font-semibold bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                    <option value="150">150 DPI (Compact)</option>
+                    <option value="200" selected>200 DPI (Standard / PAN)</option>
+                    <option value="100">100 DPI (Ultra Small)</option>
+                  </select>
+                </div>
+              </div>
+              <label class="inline-flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-700">
+                <input id="docBwToggle" type="checkbox" class="rounded text-indigo-600 focus:ring-indigo-500" />
+                Convert Pages to Black &amp; White (Required for Protean PAN)
+              </label>
+            </div>
+
+            <button id="processBtn" type="button" disabled
+              class="w-full py-3 rounded-xl bg-indigo-600 text-white font-extrabold text-sm shadow-md hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed transition">
+              Process &amp; Resize File
+            </button>
+          </div>
+        </div>
+
+        <!-- Right Column: Live Preview & Output -->
+        <div class="lg:col-span-7 flex flex-col gap-5">
+          <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:p-5 flex-1 flex flex-col">
+            <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
+              <h3 class="text-sm font-extrabold text-slate-900 uppercase tracking-wide">Live Preview &amp; Verification</h3>
+              <div id="complianceBadge" class="hidden px-3 py-1 rounded-full text-xs font-extrabold"></div>
+            </div>
+
+            <!-- Empty Preview State -->
+            <div id="emptyPreviewState" class="flex-1 min-h-[280px] flex flex-col items-center justify-center text-center p-6 border border-dashed border-slate-300 rounded-2xl bg-white">
+              <div class="w-16 h-16 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center mb-3">
+                <svg class="w-8 h-8" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+                </svg>
+              </div>
+              <p class="text-sm font-bold text-slate-700">No file uploaded yet</p>
+              <p class="text-xs text-slate-500 mt-1 max-w-sm">
+                Upload a photo, signature, or certificate on the left to automatically resize, set DPI metadata, and compress it to exact exam limits.
+              </p>
+            </div>
+
+            <!-- Active Preview State -->
+            <div id="activePreviewState" class="hidden flex-1 flex flex-col gap-4">
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <!-- Original -->
+                <div class="bg-white rounded-xl border border-slate-200 p-3 flex flex-col">
+                  <div class="flex items-center justify-between text-xs font-bold text-slate-500 mb-2">
+                    <span>ORIGINAL</span>
+                    <span id="origMeta" class="text-slate-700">—</span>
+                  </div>
+                  <div class="checker-bg rounded-lg h-52 flex items-center justify-center overflow-hidden p-2">
+                    <img id="origPreviewImg" alt="Original preview" class="max-h-full max-w-full object-contain hidden" />
+                    <div id="origPdfInfo" class="hidden text-center p-4">
+                      <div class="text-3xl font-black text-rose-600 mb-1">PDF</div>
+                      <p id="origPdfName" class="text-xs font-bold text-slate-700 break-all"></p>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Resized Output -->
+                <div class="bg-white rounded-xl border-2 border-indigo-200 p-3 flex flex-col">
+                  <div class="flex items-center justify-between text-xs font-bold text-indigo-600 mb-2">
+                    <span>RESIZED OUTPUT</span>
+                    <span id="outMeta" class="text-indigo-900">—</span>
+                  </div>
+                  <div class="checker-bg rounded-lg h-52 flex items-center justify-center overflow-hidden p-2">
+                    <img id="outPreviewImg" alt="Resized preview" class="max-h-full max-w-full object-contain hidden" />
+                    <div id="outPdfInfo" class="hidden text-center p-4">
+                      <div class="text-3xl font-black text-emerald-600 mb-1">PDF READY</div>
+                      <p id="outPdfDetails" class="text-xs font-bold text-slate-700"></p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Spec Checklist -->
+              <div id="specChecklist" class="bg-white rounded-xl border border-slate-200 p-3.5 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                <div>
+                  <span class="text-slate-400 font-semibold block">Format</span>
+                  <span id="chkFormat" class="font-extrabold text-slate-800">—</span>
+                </div>
+                <div>
+                  <span class="text-slate-400 font-semibold block">Dimensions</span>
+                  <span id="chkDims" class="font-extrabold text-slate-800">—</span>
+                </div>
+                <div>
+                  <span class="text-slate-400 font-semibold block">File Size</span>
+                  <span id="chkSize" class="font-extrabold text-slate-800">—</span>
+                </div>
+                <div>
+                  <span class="text-slate-400 font-semibold block">DPI Metadata</span>
+                  <span id="chkDpi" class="font-extrabold text-slate-800">—</span>
+                </div>
+              </div>
+
+              <!-- Download Button -->
+              <div class="flex flex-wrap items-center justify-between gap-3 pt-1">
+                <p id="processingNote" class="text-xs text-slate-500 font-medium"></p>
+                <button id="downloadBtn" type="button" disabled
+                  class="px-6 py-3 rounded-xl bg-emerald-600 text-white font-extrabold text-sm shadow-lg hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed transition flex items-center gap-2">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                  </svg>
+                  Download Resized File
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <script>
+    // Initialize PDF.js worker if available
+    try {
+      if (window.pdfjsLib) {
+        window.pdfjsLib.GlobalWorkerOptions.workerSrc =
+          'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+      }
+    } catch (e) { /* ignore */ }
+
+    // Custom crisp SVG icons matching the uploaded design
+    const ICONS = {
+      ssc_gd: `<svg viewBox="0 0 100 80" class="w-full h-full">
+        <circle cx="36" cy="24" r="10" fill="#1e293b"/>
+        <path d="M22 68c0-14 6-22 14-22s14 8 14 22H22z" fill="#334155"/>
+        <rect x="28" y="13" width="16" height="5" rx="2" fill="#1e3a8a"/>
+        <circle cx="64" cy="20" r="11" fill="#1e293b"/>
+        <path d="M48 68c0-16 7-25 16-25s16 9 16 25H48z" fill="#1e3a8a"/>
+        <rect x="55" y="8" width="18" height="6" rx="2" fill="#0f172a"/>
+        <rect x="58" y="48" width="12" height="4" rx="1" fill="#facc15"/>
+      </svg>`,
+      ssc_cgl: `<svg viewBox="0 0 100 70" class="w-full h-full">
+        <g fill="#0f172a">
+          <circle cx="26" cy="18" r="6"/><rect x="19" y="25" width="14" height="22" rx="4"/><rect x="21" y="46" width="4" height="16"/><rect x="27" y="46" width="4" height="16"/>
+          <circle cx="50" cy="16" r="7"/><rect x="42" y="24" width="16" height="24" rx="4"/><rect x="44" y="47" width="5" height="17"/><rect x="51" y="47" width="5" height="17"/>
+          <circle cx="74" cy="18" r="6"/><rect x="67" y="25" width="14" height="22" rx="4"/><rect x="69" y="46" width="4" height="16"/><rect x="75" y="46" width="4" height="16"/>
+        </g>
+      </svg>`,
+      rrb_ntpc: `<svg viewBox="0 0 120 70" class="w-full h-full">
+        <path d="M12 46 Q18 22 48 20 L106 20 L106 48 L12 48 Z" fill="#e2e8f0" stroke="#334155" stroke-width="2"/>
+        <path d="M14 42 L106 42 L106 47 L12 47 Z" fill="#2563eb"/>
+        <path d="M22 33 Q28 24 44 24 L44 35 L20 35 Z" fill="#1e293b"/>
+        <rect x="50" y="25" width="14" height="9" rx="2" fill="#38bdf8"/>
+        <rect x="68" y="25" width="14" height="9" rx="2" fill="#38bdf8"/>
+        <rect x="86" y="25" width="14" height="9" rx="2" fill="#38bdf8"/>
+        <line x1="8" y1="52" x2="112" y2="52" stroke="#64748b" stroke-width="3"/>
+      </svg>`,
+      rrb_group_d: `<svg viewBox="0 0 120 70" class="w-full h-full">
+        <rect x="18" y="18" width="84" height="32" rx="6" fill="#dc2626" stroke="#1e293b" stroke-width="2"/>
+        <rect x="18" y="34" width="84" height="7" fill="#f8fafc"/>
+        <rect x="26" y="22" width="12" height="10" rx="2" fill="#1e293b"/>
+        <rect x="44" y="22" width="14" height="10" rx="2" fill="#93c5fd"/>
+        <rect x="64" y="22" width="14" height="10" rx="2" fill="#93c5fd"/>
+        <rect x="84" y="22" width="12" height="10" rx="2" fill="#93c5fd"/>
+        <circle cx="32" cy="54" r="5" fill="#334155"/>
+        <circle cx="54" cy="54" r="5" fill="#334155"/>
+        <circle cx="88" cy="54" r="5" fill="#334155"/>
+      </svg>`,
+      ssc_chsl: `<svg viewBox="0 0 110 70" class="w-full h-full">
+        <rect x="12" y="10" width="86" height="50" rx="3" fill="#78350f"/>
+        <rect x="17" y="15" width="76" height="40" fill="#a8a29e"/>
+        <rect x="43" y="22" width="24" height="26" fill="#fef3c7" stroke="#57534e"/>
+        <circle cx="55" cy="31" r="5" fill="#44403c"/>
+        <path d="M47 45c0-5 3.5-8 8-8s8 3 8 8" fill="#44403c"/>
+        <rect x="22" y="19" width="14" height="10" fill="#fef9c3"/>
+        <rect x="74" y="20" width="14" height="10" fill="#fef9c3"/>
+        <line x1="36" y1="24" x2="43" y2="30" stroke="#dc2626" stroke-width="1.5"/>
+        <line x1="74" y1="25" x2="67" y2="31" stroke="#dc2626" stroke-width="1.5"/>
+      </svg>`,
+      pan_card: `<svg viewBox="0 0 100 80" class="w-full h-full">
+        <g transform="translate(50,40)">
+          <rect x="-5" y="-26" width="10" height="52" rx="5" fill="#e11d48" transform="rotate(15)"/>
+          <rect x="-5" y="-26" width="10" height="52" rx="5" fill="#f43f5e" transform="rotate(75)"/>
+          <rect x="-5" y="-26" width="10" height="52" rx="5" fill="#fb7185" transform="rotate(135)"/>
+        </g>
+      </svg>`,
+      rrb_alp: `<svg viewBox="0 0 110 80" class="w-full h-full">
+        <line x1="18" y1="68" x2="36" y2="42" stroke="#78350f" stroke-width="4"/>
+        <line x1="92" y1="68" x2="74" y2="42" stroke="#78350f" stroke-width="4"/>
+        <rect x="34" y="14" width="42" height="44" rx="8" fill="#f59e0b" stroke="#1e293b" stroke-width="2"/>
+        <rect x="40" y="20" width="30" height="14" rx="3" fill="#1e293b"/>
+        <circle cx="44" cy="46" r="4" fill="#fef08a"/>
+        <circle cx="66" cy="46" r="4" fill="#fef08a"/>
+        <rect x="10" y="22" width="10" height="24" rx="2" fill="#1e293b"/>
+        <circle cx="15" cy="28" r="3" fill="#ef4444"/><circle cx="15" cy="39" r="3" fill="#22c55e"/>
+        <rect x="90" y="22" width="10" height="24" rx="2" fill="#1e293b"/>
+        <circle cx="95" cy="28" r="3" fill="#ef4444"/><circle cx="95" cy="39" r="3" fill="#22c55e"/>
+      </svg>`,
+      rrb_je: `<svg viewBox="0 0 120 75" class="w-full h-full">
+        <line x1="12" y1="62" x2="108" y2="46" stroke="#78350f" stroke-width="4"/>
+        <path d="M22 48 L36 22 L92 18 L96 42 Z" fill="#ef4444" stroke="#1e293b" stroke-width="2"/>
+        <path d="M26 42 L94 34 L95 40 L23 48 Z" fill="#2563eb"/>
+        <rect x="40" y="25" width="16" height="10" rx="2" fill="#fef08a"/>
+        <rect x="62" y="23" width="12" height="9" rx="2" fill="#93c5fd"/>
+        <circle cx="38" cy="52" r="5" fill="#1e293b"/><circle cx="56" cy="49" r="5" fill="#1e293b"/><circle cx="80" cy="45" r="5" fill="#1e293b"/>
+      </svg>`,
+      rpf_si: `<svg viewBox="0 0 120 75" class="w-full h-full">
+        <line x1="12" y1="62" x2="108" y2="46" stroke="#78350f" stroke-width="4"/>
+        <path d="M22 48 L36 22 L92 18 L96 42 Z" fill="#dc2626" stroke="#1e293b" stroke-width="2"/>
+        <path d="M26 42 L94 34 L95 40 L23 48 Z" fill="#1d4ed8"/>
+        <rect x="40" y="25" width="16" height="10" rx="2" fill="#fde047"/>
+        <rect x="62" y="23" width="12" height="9" rx="2" fill="#bae6fd"/>
+        <circle cx="38" cy="52" r="5" fill="#0f172a"/><circle cx="56" cy="49" r="5" fill="#0f172a"/><circle cx="80" cy="45" r="5" fill="#0f172a"/>
+      </svg>`
+    };
+
+    // Grounded Exam & Portal Specifications from user prompt
+    const EXAMS = [
+      {
+        id: 'ssc_gd',
+        name: 'SSC GD',
+        category: 'ssc',
+        categoryLabel: 'SSC',
+        icon: ICONS.ssc_gd,
+        featured: true,
+        summaryPhoto: '20–50 KB (3.5×4.5 cm)',
+        summarySign: '10–20 KB (~4×2 or 6×2 cm)',
+        summaryDoc: 'PDF (~200 KB)',
+        photo: {
+          mode: 'upload',
+          badge: 'Upload Required',
+          desc: 'Upload Required. A scanned recent passport-style photo is needed. Format: JPEG/JPG, File Size: 20–50 KB, Dimensions: 3.5 cm × 4.5 cm (~200 × 230 pixels).',
+          width: 200,
+          height: 230,
+          minKb: 20,
+          maxKb: 50,
+          dpi: 150,
+          format: 'image/jpeg'
+        },
+        signature: {
+          badge: 'Upload Required',
+          desc: 'Format: JPEG/JPG, File Size: 10–20 KB, Dimensions: ~4.0 cm × 2.0 cm or ~6.0 cm × 2.0 cm (sources vary, confirm in official notice).',
+          width: 236,
+          height: 118,
+          minKb: 10,
+          maxKb: 20,
+          dpi: 150,
+          format: 'image/jpeg',
+          variants: [
+            { label: '4.0 × 2.0 cm (236×118 px)', width: 236, height: 118 },
+            { label: '6.0 × 2.0 cm (354×118 px)', width: 354, height: 118 }
+          ]
+        },
+        document: {
+          badge: 'PDF (Common)',
+          desc: 'Format: PDF (most common). File Size: The limit is displayed on the upload screen and is usually around 200 KB, but can vary by field.',
+          maxKb: 200,
+          dpi: 150,
+          bw: false
+        }
+      },
+      {
+        id: 'ssc_cgl',
+        name: 'SSC CGL',
+        category: 'ssc',
+        categoryLabel: 'SSC',
+        icon: ICONS.ssc_cgl,
+        summaryPhoto: 'Live Capture Only',
+        summarySign: '10–20 KB (~4×2 or 6×2 cm)',
+        summaryDoc: 'PDF/JPEG (100–300 KB)',
+        photo: {
+          mode: 'live',
+          badge: 'Live Capture Only',
+          desc: 'Live Capture Only. The photo is captured live via webcam or mobile during the application. No file upload is required.',
+          extra: 'SSC CGL uses live webcam/mobile photo capture. You can still use this resizer below if you need a 20–50 KB passport photo for practice or offline records.',
+          width: 200,
+          height: 230,
+          minKb: 20,
+          maxKb: 50,
+          dpi: 150,
+          format: 'image/jpeg'
+        },
+        signature: {
+          badge: 'Upload Required',
+          desc: 'Format: JPEG/JPG, File Size: 10–20 KB, Dimensions: ~4.0 cm (W) × 2.0 cm (H) or ~6.0 cm × 2.0 cm. Note: The official notice itself contains a conflict between these two dimensions.',
+          width: 236,
+          height: 118,
+          minKb: 10,
+          maxKb: 20,
+          dpi: 150,
+          format: 'image/jpeg',
+          variants: [
+            { label: '4.0 × 2.0 cm (236×118 px)', width: 236, height: 118 },
+            { label: '6.0 × 2.0 cm (354×118 px)', width: 354, height: 118 }
+          ]
+        },
+        document: {
+          badge: 'PDF / JPEG',
+          desc: 'Format: PDF (most common) or JPEG. File Size: Typically 200 KB, but limits can range from 100 KB to 300 KB depending on the specific document and upload field.',
+          maxKb: 200,
+          dpi: 150,
+          bw: false
+        }
+      },
+      {
+        id: 'rrb_ntpc',
+        name: 'RRB NTPC',
+        category: 'rrb',
+        categoryLabel: 'RRB',
+        icon: ICONS.rrb_ntpc,
+        summaryPhoto: 'Live Capture Only',
+        summarySign: '30–49 KB (Min 140×60 px)',
+        summaryDoc: 'PDF (Up to 399 KB)',
+        photo: {
+          mode: 'live',
+          badge: 'Live Capture Only',
+          desc: 'Live Capture Only. The photo is captured live via webcam or mobile during the application.',
+          extra: 'Uploading a pre-existing photo is not used for RRB NTPC live capture. Use the Signature or Supporting Document tabs for file uploads.',
+          width: 320,
+          height: 240,
+          minKb: 30,
+          maxKb: 50,
+          dpi: 100,
+          format: 'image/jpeg'
+        },
+        signature: {
+          badge: 'Upload Required',
+          desc: 'Format: JPG/JPEG, File Size: 30–49 KB, Dimensions: Minimum 140 × 60 pixels. Other: Min. 100 DPI, black ink, running handwriting.',
+          width: 280,
+          height: 120,
+          minKb: 30,
+          maxKb: 49,
+          dpi: 100,
+          format: 'image/jpeg',
+          variants: [
+            { label: 'Recommended (280×120 px)', width: 280, height: 120 },
+            { label: 'Minimum (140×60 px)', width: 140, height: 60 }
+          ]
+        },
+        document: {
+          badge: 'PDF (≤ 399 KB)',
+          desc: 'Format: PDF (for certificates like SC/ST). File Size: Can be up to 399 KB for supporting documents.',
+          maxKb: 399,
+          dpi: 150,
+          bw: false
+        }
+      },
+      {
+        id: 'rrb_group_d',
+        name: 'RRB GROUP D',
+        category: 'rrb',
+        categoryLabel: 'RRB',
+        icon: ICONS.rrb_group_d,
+        summaryPhoto: 'Live / 320×240 (50–100 KB)',
+        summarySign: '30–50 KB (140×60 px)',
+        summaryDoc: 'PDF (DV Stage)',
+        photo: {
+          mode: 'conditional',
+          badge: 'Live or Upload (Check CEN)',
+          desc: 'Live Capture (Current Trend) or Upload (as per some notices). Some sources indicate live capture, while others specify an upload of 320 × 240 px, 50–100 KB. Always check the specific CEN.',
+          width: 320,
+          height: 240,
+          minKb: 50,
+          maxKb: 100,
+          dpi: 100,
+          format: 'image/jpeg'
+        },
+        signature: {
+          badge: 'Upload Required',
+          desc: 'Format: JPG, File Size: 30–50 KB, Dimensions: 140 × 60 pixels. Other: Black ink, running handwriting.',
+          width: 140,
+          height: 60,
+          minKb: 30,
+          maxKb: 50,
+          dpi: 100,
+          format: 'image/jpeg',
+          variants: [
+            { label: 'Exact (140×60 px)', width: 140, height: 60 },
+            { label: 'Scaled 2× (280×120 px)', width: 280, height: 120 }
+          ]
+        },
+        document: {
+          badge: 'PDF (Few Hundred KB)',
+          desc: 'Similar to NTPC, supporting documents are often PDFs with limits up to a few hundred KB, specified during the document verification stage.',
+          maxKb: 399,
+          dpi: 150,
+          bw: false
+        }
+      },
+      {
+        id: 'ssc_chsl',
+        name: 'SSC CHSL',
+        category: 'ssc',
+        categoryLabel: 'SSC',
+        icon: ICONS.ssc_chsl,
+        summaryPhoto: 'Live Capture Only',
+        summarySign: '10–20 KB (~6.0×2.0 cm)',
+        summaryDoc: 'PDF (Max 200 KB)',
+        photo: {
+          mode: 'live',
+          badge: 'Live Capture Only',
+          desc: 'Live Capture Only. Similar to CGL, the photograph is captured live through the application module.',
+          extra: 'SSC CHSL captures your photo live during form submission. Switch to Signature or Supporting Document tabs to prepare those files.',
+          width: 200,
+          height: 230,
+          minKb: 20,
+          maxKb: 50,
+          dpi: 150,
+          format: 'image/jpeg'
+        },
+        signature: {
+          badge: 'Upload Required',
+          desc: 'Format: JPEG/JPG, File Size: 10–20 KB, Dimensions: ~6.0 cm (W) × 2.0 cm (H).',
+          width: 354,
+          height: 118,
+          minKb: 10,
+          maxKb: 20,
+          dpi: 150,
+          format: 'image/jpeg'
+        },
+        document: {
+          badge: 'PDF (Max 200 KB)',
+          desc: 'Format: PDF (most common). File Size: Usually capped at 200 KB per document, similar to CGL.',
+          maxKb: 200,
+          dpi: 150,
+          bw: false
+        }
+      },
+      {
+        id: 'pan_card',
+        name: 'PAN CARD',
+        category: 'pan',
+        categoryLabel: 'PAN Portal',
+        icon: ICONS.pan_card,
+        isPan: true,
+        summaryPhoto: 'Protean ≤20KB | UTI <30KB',
+        summarySign: 'Protean ≤10KB | UTI <60KB',
+        summaryDoc: 'Protean ≤300KB | UTI <5MB',
+        portals: {
+          protean: {
+            photo: {
+              mode: 'upload',
+              badge: 'Strict Specs (Protean)',
+              desc: 'Colour JPEG, 200 DPI, dimensions 3.5 cm × 2.5 cm, file size max 20 KB (some sources also mention a 50 KB ceiling for certain upload fields).',
+              extra: 'New 2026 Rule: On new paper forms (e.g., Form 93), the physical photo size has increased to 4.5 cm × 3.5 cm.',
+              width: 276,
+              height: 197,
+              minKb: 5,
+              maxKb: 20,
+              dpi: 200,
+              format: 'image/jpeg',
+              variants: [
+                { label: 'Online 3.5×2.5 cm (276×197 px, ≤20 KB)', width: 276, height: 197, maxKb: 20 },
+                { label: 'Online 50 KB Ceiling (276×197 px)', width: 276, height: 197, maxKb: 50 },
+                { label: '2026 Physical 4.5×3.5 cm (354×276 px)', width: 354, height: 276, maxKb: 50 }
+              ]
+            },
+            signature: {
+              badge: 'Strict Specs (Protean)',
+              desc: 'Colour JPEG, 200 DPI, dimensions 2 cm × 4.5 cm, file size max 10 KB.',
+              width: 157,
+              height: 354,
+              minKb: 2,
+              maxKb: 10,
+              dpi: 200,
+              format: 'image/jpeg',
+              variants: [
+                { label: '2.0 × 4.5 cm (157×354 px)', width: 157, height: 354 },
+                { label: '4.5 × 2.0 cm Landscape (354×157 px)', width: 354, height: 157 }
+              ]
+            },
+            document: {
+              badge: 'B&W 200 DPI (≤ 300 KB/pg)',
+              desc: 'Strict Specs: Black & white, 200 DPI, format PDF/A or JPEG, file size max 300 KB per page.',
+              maxKb: 300,
+              dpi: 200,
+              bw: true
+            }
+          },
+          uti: {
+            photo: {
+              mode: 'upload',
+              badge: 'Lenient Specs (UTIITSL)',
+              desc: 'JPEG, JPG, or PNG format, file size under 30 KB. Does not publish strict pixel/DPI requirements.',
+              extra: 'New 2026 Rule: Physical form also requires 4.5 cm × 3.5 cm photo.',
+              width: 276,
+              height: 197,
+              minKb: 5,
+              maxKb: 29,
+              dpi: 200,
+              format: 'image/jpeg'
+            },
+            signature: {
+              badge: 'Lenient Specs (UTIITSL)',
+              desc: 'JPEG, JPG, or PNG format, file size under 60 KB.',
+              width: 300,
+              height: 150,
+              minKb: 5,
+              maxKb: 59,
+              dpi: 200,
+              format: 'image/jpeg'
+            },
+            document: {
+              badge: 'PDF Only (< 5 MB)',
+              desc: 'PDF format only, file size under 5 MB.',
+              maxKb: 4900,
+              dpi: 200,
+              bw: false
+            }
+          }
+        }
+      },
+      {
+        id: 'rrb_alp',
+        name: 'RRB ALP',
+        category: 'rrb',
+        categoryLabel: 'RRB',
+        icon: ICONS.rrb_alp,
+        summaryPhoto: 'Live Capture Only',
+        summarySign: '30–49 KB (140×60 / 80 px)',
+        summaryDoc: 'PDF (< 400 KB)',
+        photo: {
+          mode: 'live',
+          badge: 'Live Capture Only',
+          desc: 'Live Capture Only. The application system captures a live photograph; uploading a pre-existing photo is not allowed.',
+          extra: 'RRB ALP prohibits uploading pre-existing photos. Use the Signature or SC/ST Travel Pass PDF tabs.',
+          width: 320,
+          height: 240,
+          minKb: 30,
+          maxKb: 50,
+          dpi: 100,
+          format: 'image/jpeg'
+        },
+        signature: {
+          badge: 'Upload Required',
+          desc: 'Format: JPG/JPEG, File Size: 30–49 KB, Dimensions: Minimum 140 × 60 pixels (some notices say 140 × 80 px). Other: Black ink, running handwriting, in a 35×20 mm box.',
+          width: 280,
+          height: 120,
+          minKb: 30,
+          maxKb: 49,
+          dpi: 100,
+          format: 'image/jpeg',
+          variants: [
+            { label: '140×60 Ratio (280×120 px)', width: 280, height: 120 },
+            { label: 'Min 140×60 px', width: 140, height: 60 },
+            { label: 'Notice Variant (140×80 px)', width: 140, height: 80 }
+          ]
+        },
+        document: {
+          badge: 'PDF (< 400 KB)',
+          desc: 'For SC/ST certificates (free travel pass), the format is PDF with a file size of less than 400 KB.',
+          maxKb: 399,
+          dpi: 150,
+          bw: false
+        }
+      },
+      {
+        id: 'rrb_je',
+        name: 'RRB JE/DMS CMA',
+        category: 'rrb',
+        categoryLabel: 'RRB',
+        icon: ICONS.rrb_je,
+        summaryPhoto: 'Live Capture Only',
+        summarySign: '30–49 KB (140×60 px)',
+        summaryDoc: 'PDF (Up to 399 KB)',
+        photo: {
+          mode: 'live',
+          badge: 'Live Capture Only',
+          desc: 'Live Capture Only. A live photo is mandatory; pre-existing photos are prohibited.',
+          extra: 'Live photo is mandatory for RRB JE / DMS / CMA. Use the Signature or Supporting Document tabs.',
+          width: 320,
+          height: 240,
+          minKb: 30,
+          maxKb: 50,
+          dpi: 100,
+          format: 'image/jpeg'
+        },
+        signature: {
+          badge: 'Upload Required',
+          desc: 'Format: JPG/JPEG, File Size: 30–49 KB, Dimensions: 140 × 60 pixels. Other: Black ink, running handwriting, min. 100 DPI.',
+          width: 140,
+          height: 60,
+          minKb: 30,
+          maxKb: 49,
+          dpi: 100,
+          format: 'image/jpeg',
+          variants: [
+            { label: 'Exact (140×60 px)', width: 140, height: 60 },
+            { label: 'Scaled 2× (280×120 px)', width: 280, height: 120 }
+          ]
+        },
+        document: {
+          badge: 'PDF (≤ 399 KB)',
+          desc: 'Supporting documents can be prepared up to 399 KB in PDF format.',
+          maxKb: 399,
+          dpi: 150,
+          bw: false
+        }
+      },
+      {
+        id: 'rpf_si',
+        name: 'RPF (SI & CON)',
+        category: 'rrb',
+        categoryLabel: 'RRB SI/CON',
+        icon: ICONS.rpf_si,
+        summaryPhoto: '320×240 px (20–50 KB)',
+        summarySign: '10–40 KB (140×60 px)',
+        summaryDoc: 'PDF (Certificates)',
+        photo: {
+          mode: 'upload',
+          badge: 'Upload Required',
+          desc: 'Upload Required. Dimensions: 320 × 240 px, File Size: 20–50 KB.',
+          width: 320,
+          height: 240,
+          minKb: 20,
+          maxKb: 50,
+          dpi: 100,
+          format: 'image/jpeg'
+        },
+        signature: {
+          badge: 'Upload Required',
+          desc: 'Format: JPG, File Size: 10–40 KB, Dimensions: 140 × 60 px.',
+          width: 140,
+          height: 60,
+          minKb: 10,
+          maxKb: 40,
+          dpi: 100,
+          format: 'image/jpeg'
+        },
+        document: {
+          badge: 'PDF (Certificates)',
+          desc: 'Specifications are provided in the specific RPF notification, generally following the pattern of PDFs for certificates.',
+          maxKb: 399,
+          dpi: 150,
+          bw: false
+        }
+      }
+    ];
+
+    // Custom Exam entry (accessible via Custom Resizer button)
+    const CUSTOM_EXAM = {
+      id: 'custom',
+      name: 'Custom Resizer',
+      category: 'custom',
+      categoryLabel: 'Custom',
+      icon: ICONS.pan_card,
+      photo: {
+        mode: 'upload',
+        badge: 'Custom Mode',
+        desc: 'Set any pixel width, height, DPI, and min/max KB range for photos.',
+        width: 320,
+        height: 240,
+        minKb: 20,
+        maxKb: 50,
+        dpi: 200,
+        format: 'image/jpeg'
+      },
+      signature: {
+        badge: 'Custom Mode',
+        desc: 'Set any pixel width, height, DPI, and min/max KB range for signatures.',
+        width: 280,
+        height: 120,
+        minKb: 10,
+        maxKb: 30,
+        dpi: 150,
+        format: 'image/jpeg'
+      },
+      document: {
+        badge: 'Custom PDF',
+        desc: 'Compress PDFs or convert images to PDF under your custom KB limit.',
+        maxKb: 300,
+        dpi: 150,
+        bw: false
+      }
+    };
+
+    // App State
+    const state = {
+      filterCat: 'all',
+      searchQuery: '',
+      currentExamId: null,
+      panPortal: 'protean', // 'protean' | 'uti'
+      mode: 'photo',        // 'photo' | 'signature' | 'document'
+      sourceFile: null,
+      sourceImage: null,
+      sourceType: null,     // 'image' | 'pdf'
+      outputBlob: null,
+      outputUrl: null,
+      outputMeta: null
+    };
+
+    // DOM Elements
+    const homeView = document.getElementById('homeView');
+    const workspaceView = document.getElementById('workspaceView');
+    const backToHomeBtn = document.getElementById('backToHomeBtn');
+    const homeLogoBtn = document.getElementById('homeLogoBtn');
+    const openCustomBtn = document.getElementById('openCustomBtn');
+    const examGrid = document.getElementById('examGrid');
+    const specSummaryTableBody = document.getElementById('specSummaryTableBody');
+    const examSearchInput = document.getElementById('examSearchInput');
+    const categoryFilterBar = document.getElementById('categoryFilterBar');
+
+    const wsExamIcon = document.getElementById('wsExamIcon');
+    const wsExamTitle = document.getElementById('wsExamTitle');
+    const wsExamCategoryBadge = document.getElementById('wsExamCategoryBadge');
+    const wsExamSubtitle = document.getElementById('wsExamSubtitle');
+    const wsExamSwitcher = document.getElementById('wsExamSwitcher');
+
+    const panPortalBar = document.getElementById('panPortalBar');
+    const panProteanBtn = document.getElementById('panProteanBtn');
+    const panUtiBtn = document.getElementById('panUtiBtn');
+
+    const specStatusPill = document.getElementById('specStatusPill');
+    const specDetailsText = document.getElementById('specDetailsText');
+    const specExtraBox = document.getElementById('specExtraBox');
+    const variantSelectorBox = document.getElementById('variantSelectorBox');
+    const variantButtons = document.getElementById('variantButtons');
+
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('fileInput');
+    const dropZoneTitle = document.getElementById('dropZoneTitle');
+    const dropZoneHint = document.getElementById('dropZoneHint');
+
+    const imageControls = document.getElementById('imageControls');
+    const docControls = document.getElementById('docControls');
+    const ctrlWidth = document.getElementById('ctrlWidth');
+    const ctrlHeight = document.getElementById('ctrlHeight');
+    const ctrlMinKb = document.getElementById('ctrlMinKb');
+    const ctrlMaxKb = document.getElementById('ctrlMaxKb');
+    const ctrlDpi = document.getElementById('ctrlDpi');
+    const ctrlFormat = document.getElementById('ctrlFormat');
+    const ctrlFitMode = document.getElementById('ctrlFitMode');
+    const ctrlBwToggle = document.getElementById('ctrlBwToggle');
+    const ctrlAutoSizeToggle = document.getElementById('ctrlAutoSizeToggle');
+    const manualQualityBox = document.getElementById('manualQualityBox');
+    const ctrlQuality = document.getElementById('ctrlQuality');
+    const manualQualityVal = document.getElementById('manualQualityVal');
+
+    const docMaxKb = document.getElementById('docMaxKb');
+    const docDpi = document.getElementById('docDpi');
+    const docBwToggle = document.getElementById('docBwToggle');
+
+    const resetPresetBtn = document.getElementById('resetPresetBtn');
+    const processBtn = document.getElementById('processBtn');
+    const downloadBtn = document.getElementById('downloadBtn');
+
+    const emptyPreviewState = document.getElementById('emptyPreviewState');
+    const activePreviewState = document.getElementById('activePreviewState');
+    const origMeta = document.getElementById('origMeta');
+    const outMeta = document.getElementById('outMeta');
+    const origPreviewImg = document.getElementById('origPreviewImg');
+    const outPreviewImg = document.getElementById('outPreviewImg');
+    const origPdfInfo = document.getElementById('origPdfInfo');
+    const origPdfName = document.getElementById('origPdfName');
+    const outPdfInfo = document.getElementById('outPdfInfo');
+    const outPdfDetails = document.getElementById('outPdfDetails');
+
+    const complianceBadge = document.getElementById('complianceBadge');
+    const chkFormat = document.getElementById('chkFormat');
+    const chkDims = document.getElementById('chkDims');
+    const chkSize = document.getElementById('chkSize');
+    const chkDpi = document.getElementById('chkDpi');
+    const processingNote = document.getElementById('processingNote');
+
+    // Toast Notification
+    function showToast(msg, type = 'info') {
+      const el = document.createElement('div');
+      const bg = type === 'error' ? 'bg-rose-600' : type === 'success' ? 'bg-emerald-600' : 'bg-slate-900';
+      el.className = `${bg} text-white text-xs sm:text-sm font-bold px-4 py-2.5 rounded-xl shadow-lg pointer-events-auto transition-opacity duration-300`;
+      el.textContent = msg;
+      document.getElementById('toastContainer').appendChild(el);
+      setTimeout(() => {
+        el.style.opacity = '0';
+        setTimeout(() => el.remove(), 300);
+      }, 2800);
+    }
+
+    // Helper: Get active exam object
+    function getExam(id) {
+      if (id === 'custom') return CUSTOM_EXAM;
+      return EXAMS.find(e => e.id === id) || EXAMS[0];
+    }
+
+    // Helper: Get active spec for current exam + portal + mode
+    function getActiveSpec() {
+      const exam = getExam(state.currentExamId);
+      if (exam.isPan) {
+        return exam.portals[state.panPortal][state.mode];
+      }
+      return exam[state.mode];
+    }
+
+    // Render Home Exam Grid & Summary Table
+    function renderHome() {
+      const q = state.searchQuery.trim().toLowerCase();
+      const filtered = EXAMS.filter(exam => {
+        const catMatch = state.filterCat === 'all' || exam.category === state.filterCat;
+        const textMatch = !q ||
+          exam.name.toLowerCase().includes(q) ||
+          exam.categoryLabel.toLowerCase().includes(q) ||
+          exam.summaryPhoto.toLowerCase().includes(q) ||
+          exam.summarySign.toLowerCase().includes(q);
+        return catMatch && textMatch;
+      });
+
+      if (filtered.length === 0) {
+        examGrid.innerHTML = `
+          <div class="col-span-full bg-white/90 rounded-2xl p-8 text-center">
+            <p class="font-bold text-slate-800">No matching exams found.</p>
+            <p class="text-xs text-slate-500 mt-1">Try clearing your search or open the Custom Resizer.</p>
+          </div>`;
+      } else {
+        examGrid.innerHTML = filtered.map(exam => {
+          const featuredSpan = exam.featured && state.filterCat === 'all' && !q
+            ? 'sm:row-span-2 flex flex-col justify-center'
+            : '';
+          return `
+            <div data-exam-id="${exam.id}" class="exam-card p-4 sm:p-5 flex flex-col items-center justify-between text-center ${featuredSpan}">
+              <div class="w-24 h-20 sm:w-28 sm:h-24 flex items-center justify-center mb-3">
+                ${exam.icon}
+              </div>
+              <div>
+                <h3 class="card-label-gradient text-base sm:text-lg font-black uppercase tracking-tight leading-tight">
+                  ${exam.name}
+                </h3>
+                <div class="mt-2 flex flex-wrap items-center justify-center gap-1">
+                  <span class="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 text-[10px] font-bold">
+                    ${exam.summaryPhoto}
+                  </span>
+                </div>
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+
+      // Render Summary Table
+      specSummaryTableBody.innerHTML = EXAMS.map(exam => `
+        <tr data-exam-id="${exam.id}" class="hover:bg-pink-50/70 cursor-pointer transition">
+          <td class="py-2.5 pr-3 font-extrabold text-indigo-700 whitespace-nowrap">${exam.name}</td>
+          <td class="py-2.5 px-3 text-slate-700">${exam.summaryPhoto}</td>
+          <td class="py-2.5 px-3 text-slate-700">${exam.summarySign}</td>
+          <td class="py-2.5 pl-3 text-slate-700">${exam.summaryDoc}</td>
+        </tr>
+      `).join('');
+
+      // Populate Switcher
+      wsExamSwitcher.innerHTML = [...EXAMS, CUSTOM_EXAM].map(e =>
+        `<option value="${e.id}" class="text-slate-900">${e.name}</option>`
+      ).join('');
+    }
+
+    // Open Workspace for an Exam
+    function openExam(examId) {
+      state.currentExamId = examId;
+      const exam = getExam(examId);
+
+      // Default to signature if photo is live-capture-only, or photo if upload
+      const defaultPhotoSpec = exam.isPan ? exam.portals[state.panPortal].photo : exam.photo;
+      state.mode = defaultPhotoSpec.mode === 'live' ? 'signature' : 'photo';
+
+      homeView.classList.add('hidden');
+      workspaceView.classList.remove('hidden');
+      backToHomeBtn.classList.remove('hidden');
+
+      wsExamIcon.innerHTML = exam.icon;
+      wsExamTitle.textContent = exam.name;
+      wsExamCategoryBadge.textContent = exam.categoryLabel;
+      wsExamSubtitle.textContent = exam.isPan
+        ? 'Protean (NSDL) & UTIITSL Online Portals + 2026 Physical Form Rules'
+        : 'Pre-configured with official photo, signature & document rules';
+      wsExamSwitcher.value = examId;
+
+      if (exam.isPan) {
+        panPortalBar.classList.remove('hidden');
+      } else {
+        panPortalBar.classList.add('hidden');
+      }
+
+      clearFileState();
+      syncModeUI();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function goHome() {
+      workspaceView.classList.add('hidden');
+      homeView.classList.remove('hidden');
+      backToHomeBtn.classList.add('hidden');
+      clearFileState();
+    }
+
+    function clearFileState() {
+      state.sourceFile = null;
+      state.sourceImage = null;
+      state.sourceType = null;
+      if (state.outputUrl) {
+        URL.revokeObjectURL(state.outputUrl);
+        state.outputUrl = null;
+      }
+      state.outputBlob = null;
+      state.outputMeta = null;
+      fileInput.value = '';
+      processBtn.disabled = true;
+      downloadBtn.disabled = true;
+      emptyPreviewState.classList.remove('hidden');
+      activePreviewState.classList.add('hidden');
+      complianceBadge.classList.add('hidden');
+      processingNote.textContent = '';
+    }
+
+    // Sync UI to current mode & exam spec
+    function syncModeUI() {
+      const exam = getExam(state.currentExamId);
+      const spec = getActiveSpec();
+
+      // Update Mode Tabs
+      document.querySelectorAll('.mode-tab').forEach(btn => {
+        const active = btn.dataset.mode === state.mode;
+        btn.classList.toggle('border-indigo-600', active);
+        btn.classList.toggle('text-indigo-700', active);
+        btn.classList.toggle('border-transparent', !active);
+        btn.classList.toggle('text-slate-500', !active);
+      });
+
+      // Update PAN portal buttons
+      if (exam.isPan) {
+        const isProt = state.panPortal === 'protean';
+        panProteanBtn.className = isProt
+          ? 'px-3 py-1 rounded-lg text-xs sm:text-sm font-bold bg-white text-indigo-700 shadow'
+          : 'px-3 py-1 rounded-lg text-xs sm:text-sm font-bold text-amber-900 hover:bg-white/50';
+        panUtiBtn.className = !isProt
+          ? 'px-3 py-1 rounded-lg text-xs sm:text-sm font-bold bg-white text-indigo-700 shadow'
+          : 'px-3 py-1 rounded-lg text-xs sm:text-sm font-bold text-amber-900 hover:bg-white/50';
+      }
+
+      // Spec Card
+      specDetailsText.textContent = spec.desc;
+      specStatusPill.textContent = spec.badge || 'Spec Active';
+      if (spec.mode === 'live') {
+        specStatusPill.className = 'px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-900';
+      } else if (spec.mode === 'conditional') {
+        specStatusPill.className = 'px-2.5 py-0.5 rounded-full text-xs font-bold bg-sky-100 text-sky-900';
+      } else {
+        specStatusPill.className = 'px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800';
+      }
+
+      if (spec.extra) {
+        specExtraBox.textContent = spec.extra;
+        specExtraBox.classList.remove('hidden');
+      } else {
+        specExtraBox.classList.add('hidden');
+      }
+
+      // Variants
+      if (spec.variants && spec.variants.length > 0) {
+        variantSelectorBox.classList.remove('hidden');
+        variantButtons.innerHTML = spec.variants.map((v, idx) => `
+          <button type="button" data-vidx="${idx}"
+            class="variant-btn px-2.5 py-1 rounded-lg text-xs font-bold border ${idx === 0 ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'}">
+            ${v.label}
+          </button>
+        `).join('');
+      } else {
+        variantSelectorBox.classList.add('hidden');
+        variantButtons.innerHTML = '';
+      }
+
+      // Controls & Dropzone
+      if (state.mode === 'document') {
+        imageControls.classList.add('hidden');
+        docControls.classList.remove('hidden');
+        fileInput.accept = '.pdf,image/*';
+        dropZoneTitle.textContent = 'Drop PDF or Image here to compress into PDF';
+        dropZoneHint.textContent = 'Supports PDF, JPG, JPEG, PNG (100% browser-side)';
+        docMaxKb.value = spec.maxKb || 300;
+        docDpi.value = String(spec.dpi || 200);
+        docBwToggle.checked = Boolean(spec.bw);
+      } else {
+        imageControls.classList.remove('hidden');
+        docControls.classList.add('hidden');
+        fileInput.accept = 'image/*';
+        dropZoneTitle.textContent = `Drop your ${state.mode} image here or click to browse`;
+        dropZoneHint.textContent = 'Supports JPG, JPEG, PNG, WEBP';
+        ctrlWidth.value = spec.width;
+        ctrlHeight.value = spec.height;
+        ctrlMinKb.value = spec.minKb;
+        ctrlMaxKb.value = spec.maxKb;
+        ctrlDpi.value = spec.dpi;
+        ctrlFormat.value = spec.format || 'image/jpeg';
+        ctrlBwToggle.checked = false;
+        ctrlFitMode.value = state.mode === 'signature' ? 'contain' : 'cover';
+      }
+    }
+
+    // Inject JFIF DPI metadata (APP0) into a JPEG ArrayBuffer
+    function setJpegDpi(arrayBuffer, dpi) {
+      const bytes = new Uint8Array(arrayBuffer);
+      if (bytes[0] !== 0xFF || bytes[1] !== 0xD8) return arrayBuffer;
+      // Check if APP0 JFIF marker exists at byte 2
+      if (bytes[2] === 0xFF && bytes[3] === 0xE0) {
+        // Density units: 1 = dots per inch
+        bytes[13] = 1;
+        bytes[14] = (dpi >> 8) & 0xFF;
+        bytes[15] = dpi & 0xFF;
+        bytes[16] = (dpi >> 8) & 0xFF;
+        bytes[17] = dpi & 0xFF;
+        return bytes.buffer;
+      }
+      // Insert APP0 JFIF segment right after SOI (FF D8)
+      const app0 = new Uint8Array([
+        0xFF, 0xE0, 0x00, 0x10,
+        0x4A, 0x46, 0x49, 0x46, 0x00,
+        0x01, 0x01, 0x01,
+        (dpi >> 8) & 0xFF, dpi & 0xFF,
+        (dpi >> 8) & 0xFF, dpi & 0xFF,
+        0x00, 0x00
+      ]);
+      const out = new Uint8Array(bytes.length + app0.length);
+      out.set(bytes.subarray(0, 2), 0);
+      out.set(app0, 2);
+      out.set(bytes.subarray(2), 2 + app0.length);
+      return out.buffer;
+    }
+
+    // Handle uploaded file
+    async function handleFileSelected(file) {
+      if (!file) return;
+      clearFileState();
+      state.sourceFile = file;
+
+      const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+      if (isPdf && state.mode !== 'document') {
+        showToast('Switched to Supporting Document mode for PDF file.', 'info');
+        state.mode = 'document';
+        syncModeUI();
+      }
+
+      emptyPreviewState.classList.add('hidden');
+      activePreviewState.classList.remove('hidden');
+
+      if (isPdf) {
+        state.sourceType = 'pdf';
+        origPreviewImg.classList.add('hidden');
+        origPdfInfo.classList.remove('hidden');
+        origPdfName.textContent = file.name;
+        origMeta.textContent = `${(file.size / 1024).toFixed(1)} KB`;
+        processBtn.disabled = false;
+        await processCurrentFile();
+      } else if (file.type.startsWith('image/')) {
+        state.sourceType = 'image';
+        const reader = new FileReader();
+        reader.onload = () => {
+          const img = new Image();
+          img.onload = async () => {
+            state.sourceImage = img;
+            origPdfInfo.classList.add('hidden');
+            origPreviewImg.classList.remove('hidden');
+            origPreviewImg.src = reader.result;
+            origMeta.textContent = `${img.naturalWidth}×${img.naturalHeight} px • ${(file.size / 1024).toFixed(1)} KB`;
+            processBtn.disabled = false;
+            await processCurrentFile();
+          };
+          img.onerror = () => showToast('Could not decode image file.', 'error');
+          img.src = reader.result;
+        };
+        reader.readAsDataURL(file);
+      } else {
+        showToast('Unsupported file type. Please upload JPG, PNG, or PDF.', 'error');
+        clearFileState();
+      }
+    }
+
+    // Canvas helper: export blob from canvas
+    function canvasToBlob(canvas, mime, quality) {
+      return new Promise(resolve => canvas.toBlob(resolve, mime, quality));
+    }
+
+    // Draw image onto target canvas with fit mode & optional B&W contrast
+    function renderImageToCanvas(img, targetW, targetH, fitMode, bwEnhance) {
+      const canvas = document.createElement('canvas');
+      canvas.width = targetW;
+      canvas.height = targetH;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, targetW, targetH);
+
+      const srcW = img.naturalWidth;
+      const srcH = img.naturalHeight;
+
+      if (fitMode === 'stretch') {
+        ctx.drawImage(img, 0, 0, targetW, targetH);
+      } else if (fitMode === 'cover') {
+        const scale = Math.max(targetW / srcW, targetH / srcH);
+        const drawW = srcW * scale;
+        const drawH = srcH * scale;
+        const dx = (targetW - drawW) / 2;
+        const dy = (targetH - drawH) / 2;
+        ctx.drawImage(img, dx, dy, drawW, drawH);
+      } else {
+        // contain
+        const scale = Math.min(targetW / srcW, targetH / srcH);
+        const drawW = srcW * scale;
+        const drawH = srcH * scale;
+        const dx = (targetW - drawW) / 2;
+        const dy = (targetH - drawH) / 2;
+        ctx.drawImage(img, dx, dy, drawW, drawH);
+      }
+
+      if (bwEnhance) {
+        const imgData = ctx.getImageData(0, 0, targetW, targetH);
+        const d = imgData.data;
+        for (let i = 0; i < d.length; i += 4) {
+          const lum = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+          // Boost ink contrast & clean off-white paper
+          let val = lum > 175 ? 255 : Math.max(0, Math.min(255, (lum - 100) * 1.8 + 70));
+          d[i] = d[i + 1] = d[i + 2] = val;
+        }
+        ctx.putImageData(imgData, 0, 0);
+      }
+      return canvas;
+    }
+
+    // Process Image Mode
+    async function processImageMode() {
+      const targetW = Math.max(20, parseInt(ctrlWidth.value, 10) || 200);
+      const targetH = Math.max(20, parseInt(ctrlHeight.value, 10) || 200);
+      const minKb = Math.max(1, parseInt(ctrlMinKb.value, 10) || 10);
+      const maxKb = Math.max(minKb + 1, parseInt(ctrlMaxKb.value, 10) || 50);
+      const dpi = Math.max(72, parseInt(ctrlDpi.value, 10) || 150);
+      const mime = ctrlFormat.value || 'image/jpeg';
+      const fitMode = ctrlFitMode.value || 'contain';
+      const bw = ctrlBwToggle.checked;
+      const autoHit = ctrlAutoSizeToggle.checked;
+
+      const canvas = renderImageToCanvas(state.sourceImage, targetW, targetH, fitMode, bw);
+
+      let finalBlob = null;
+      let usedQuality = parseInt(ctrlQuality.value, 10) / 100;
+
+      if (mime === 'image/png') {
+        finalBlob = await canvasToBlob(canvas, 'image/png');
+      } else if (!autoHit) {
+        finalBlob = await canvasToBlob(canvas, 'image/jpeg', usedQuality);
+      } else {
+        // Binary search JPEG quality to land cleanly inside [minKb, maxKb]
+        let low = 0.05, high = 0.99;
+        let bestBlob = null;
+        const targetMidKb = (minKb + maxKb) / 2;
+
+        for (let i = 0; i < 11; i++) {
+          const mid = (low + high) / 2;
+          const b = await canvasToBlob(canvas, 'image/jpeg', mid);
+          const kb = b.size / 1024;
+          bestBlob = b;
+          usedQuality = mid;
+          if (kb > maxKb) {
+            high = mid;
+          } else if (kb < minKb) {
+            low = mid;
+          } else {
+            // Inside range; nudge toward middle
+            if (kb < targetMidKb) low = mid;
+            else high = mid;
+          }
+        }
+        finalBlob = bestBlob;
+      }
+
+      // Inject DPI metadata if JPEG
+      if (mime === 'image/jpeg' && finalBlob) {
+        const buf = await finalBlob.arrayBuffer();
+        const dpiBuf = setJpegDpi(buf, dpi);
+        finalBlob = new Blob([dpiBuf], { type: 'image/jpeg' });
+      }
+
+      const finalKb = finalBlob.size / 1024;
+      setOutputPreview(finalBlob, {
+        isPdf: false,
+        width: targetW,
+        height: targetH,
+        kb: finalKb,
+        minKb,
+        maxKb,
+        dpi,
+        formatLabel: mime === 'image/png' ? 'PNG' : 'JPEG/JPG',
+        note: mime === 'image/jpeg'
+          ? `Compressed at ~${Math.round(usedQuality * 100)}% quality with ${dpi} DPI header.`
+          : 'Exported as lossless PNG.'
+      });
+    }
+
+    // Process Document (PDF) Mode
+    async function processDocumentMode() {
+      if (!window.jspdf || !window.jspdf.jsPDF) {
+        showToast('PDF library failed to load. Please check connection.', 'error');
+        return;
+      }
+      const { jsPDF } = window.jspdf;
+      const maxKb = Math.max(20, parseInt(docMaxKb.value, 10) || 300);
+      const dpi = parseInt(docDpi.value, 10) || 200;
+      const bw = docBwToggle.checked;
+
+      let pageCanvases = [];
+
+      if (state.sourceType === 'image') {
+        const img = state.sourceImage;
+        const maxDim = dpi === 200 ? 1650 : dpi === 150 ? 1240 : 850;
+        const scale = Math.min(1, maxDim / Math.max(img.naturalWidth, img.naturalHeight));
+        const w = Math.max(100, Math.round(img.naturalWidth * scale));
+        const h = Math.max(100, Math.round(img.naturalHeight * scale));
+        pageCanvases.push(renderImageToCanvas(img, w, h, 'contain', bw));
+      } else if (state.sourceType === 'pdf') {
+        if (!window.pdfjsLib) {
+          showToast('PDF reader library unavailable.', 'error');
+          return;
+        }
+        processingNote.textContent = 'Rendering PDF pages...';
+        const arrayBuf = await state.sourceFile.arrayBuffer();
+        const pdfDoc = await window.pdfjsLib.getDocument({ data: arrayBuf }).promise;
+        const scale = dpi / 72;
+
+        for (let p = 1; p <= pdfDoc.numPages; p++) {
+          const page = await pdfDoc.getPage(p);
+          const viewport = page.getViewport({ scale });
+          const c = document.createElement('canvas');
+          c.width = Math.round(viewport.width);
+          c.height = Math.round(viewport.height);
+          const ctx = c.getContext('2d');
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, c.width, c.height);
+          await page.render({ canvasContext: ctx, viewport }).promise;
+
+          if (bw) {
+            const imgData = ctx.getImageData(0, 0, c.width, c.height);
+            const d = imgData.data;
+            for (let i = 0; i < d.length; i += 4) {
+              const lum = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+              const v = lum > 170 ? 255 : Math.max(0, Math.min(255, (lum - 95) * 1.7 + 70));
+              d[i] = d[i + 1] = d[i + 2] = v;
+            }
+            ctx.putImageData(imgData, 0, 0);
+          }
+          pageCanvases.push(c);
+        }
+      }
+
+      // Binary search JPEG quality across pages to fit under maxKb
+      let low = 0.12, high = 0.92;
+      let bestPdfBlob = null;
+      let usedQ = 0.65;
+
+      for (let attempt = 0; attempt < 6; attempt++) {
+        const q = attempt === 0 ? 0.72 : (low + high) / 2;
+        const first = pageCanvases[0];
+        const orientation = first.width > first.height ? 'l' : 'p';
+        const doc = new jsPDF({ orientation, unit: 'px', format: [first.width, first.height], compress: true });
+
+        pageCanvases.forEach((c, idx) => {
+          if (idx > 0) {
+            doc.addPage([c.width, c.height], c.width > c.height ? 'l' : 'p');
+          }
+          const dataUrl = c.toDataURL('image/jpeg', q);
+          doc.addImage(dataUrl, 'JPEG', 0, 0, c.width, c.height, undefined, 'FAST');
+        });
+
+        const blob = doc.output('blob');
+        bestPdfBlob = blob;
+        usedQ = q;
+        const kb = blob.size / 1024;
+        if (kb <= maxKb) {
+          low = q;
+          if (kb > maxKb * 0.65) break; // Good enough size
+        } else {
+          high = q;
+        }
+      }
+
+      setOutputPreview(bestPdfBlob, {
+        isPdf: true,
+        pages: pageCanvases.length,
+        kb: bestPdfBlob.size / 1024,
+        minKb: 1,
+        maxKb,
+        dpi,
+        formatLabel: 'PDF',
+        note: `Built ${pageCanvases.length}-page PDF at ~${Math.round(usedQ * 100)}% page compression (${dpi} DPI).`
+      });
+    }
+
+    async function processCurrentFile() {
+      if (!state.sourceFile) return;
+      processBtn.disabled = true;
+      processBtn.textContent = 'Processing...';
+      try {
+        if (state.mode === 'document') {
+          await processDocumentMode();
+        } else if (state.sourceImage) {
+          await processImageMode();
+        }
+      } catch (err) {
+        console.error(err);
+        showToast('Error processing file: ' + (err.message || 'Unknown error'), 'error');
+      } finally {
+        processBtn.disabled = false;
+        processBtn.textContent = 'Process & Resize File';
+      }
+    }
+
+    function setOutputPreview(blob, meta) {
+      if (state.outputUrl) URL.revokeObjectURL(state.outputUrl);
+      state.outputBlob = blob;
+      state.outputUrl = URL.createObjectURL(blob);
+      state.outputMeta = meta;
+      downloadBtn.disabled = false;
+
+      const kbStr = meta.kb >= 1024 ? `${(meta.kb / 1024).toFixed(2)} MB` : `${meta.kb.toFixed(1)} KB`;
+
+      if (meta.isPdf) {
+        outPreviewImg.classList.add('hidden');
+        outPdfInfo.classList.remove('hidden');
+        outPdfDetails.textContent = `${meta.pages} Page(s) • ${kbStr}`;
+        outMeta.textContent = `${kbStr} • PDF`;
+        chkDims.textContent = `${meta.pages} Page(s)`;
+      } else {
+        outPdfInfo.classList.add('hidden');
+        outPreviewImg.classList.remove('hidden');
+        outPreviewImg.src = state.outputUrl;
+        outMeta.textContent = `${meta.width}×${meta.height} px • ${kbStr}`;
+        chkDims.textContent = `${meta.width} × ${meta.height} px`;
+      }
+
+      chkFormat.textContent = meta.formatLabel;
+      chkSize.textContent = kbStr;
+      chkDpi.textContent = `${meta.dpi} DPI`;
+      processingNote.textContent = meta.note;
+
+      const withinRange = meta.kb <= meta.maxKb && meta.kb >= meta.minKb;
+      complianceBadge.classList.remove('hidden');
+      if (withinRange) {
+        complianceBadge.className = 'px-3 py-1 rounded-full text-xs font-extrabold bg-emerald-100 text-emerald-800';
+        complianceBadge.textContent = `Matches Exam Spec (${meta.minKb}–${meta.maxKb} KB)`;
+      } else if (meta.kb <= meta.maxKb) {
+        complianceBadge.className = 'px-3 py-1 rounded-full text-xs font-extrabold bg-sky-100 text-sky-800';
+        complianceBadge.textContent = `Under Max Limit (≤ ${meta.maxKb} KB)`;
+      } else {
+        complianceBadge.className = 'px-3 py-1 rounded-full text-xs font-extrabold bg-amber-100 text-amber-900';
+        complianceBadge.textContent = `Size ${kbStr} > ${meta.maxKb} KB Limit`;
+      }
+    }
+
+    // Event Listeners
+    examGrid.addEventListener('click', e => {
+      const card = e.target.closest('[data-exam-id]');
+      if (card) openExam(card.dataset.examId);
+    });
+
+    specSummaryTableBody.addEventListener('click', e => {
+      const row = e.target.closest('[data-exam-id]');
+      if (row) openExam(row.dataset.examId);
+    });
+
+    categoryFilterBar.addEventListener('click', e => {
+      const btn = e.target.closest('[data-cat]');
+      if (!btn) return;
+      state.filterCat = btn.dataset.cat;
+      document.querySelectorAll('.filter-pill').forEach(p => {
+        const active = p.dataset.cat === state.filterCat;
+        p.className = active
+          ? 'filter-pill px-4 py-1.5 rounded-full text-xs sm:text-sm font-bold bg-white text-pink-700 shadow'
+          : 'filter-pill px-4 py-1.5 rounded-full text-xs sm:text-sm font-bold bg-pink-700/60 text-white hover:bg-white/25 transition';
+      });
+      renderHome();
+    });
+
+    examSearchInput.addEventListener('input', e => {
+      state.searchQuery = e.target.value;
+      renderHome();
+    });
+
+    backToHomeBtn.addEventListener('click', goHome);
+    homeLogoBtn.addEventListener('click', goHome);
+    openCustomBtn.addEventListener('click', () => openExam('custom'));
+    wsExamSwitcher.addEventListener('change', e => openExam(e.target.value));
+
+    panProteanBtn.addEventListener('click', () => {
+      state.panPortal = 'protean';
+      syncModeUI();
+      if (state.sourceFile) processCurrentFile();
+    });
+
+    panUtiBtn.addEventListener('click', () => {
+      state.panPortal = 'uti';
+      syncModeUI();
+      if (state.sourceFile) processCurrentFile();
+    });
+
+    document.querySelectorAll('.mode-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        state.mode = tab.dataset.mode;
+        clearFileState();
+        syncModeUI();
+      });
+    });
+
+    variantButtons.addEventListener('click', e => {
+      const btn = e.target.closest('[data-vidx]');
+      if (!btn) return;
+      const spec = getActiveSpec();
+      const v = spec.variants[parseInt(btn.dataset.vidx, 10)];
+      if (!v) return;
+      if (v.width) ctrlWidth.value = v.width;
+      if (v.height) ctrlHeight.value = v.height;
+      if (v.maxKb) ctrlMaxKb.value = v.maxKb;
+      document.querySelectorAll('.variant-btn').forEach((b, i) => {
+        const active = i === parseInt(btn.dataset.vidx, 10);
+        b.className = `variant-btn px-2.5 py-1 rounded-lg text-xs font-bold border ${active ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'}`;
+      });
+      if (state.sourceFile) processCurrentFile();
+    });
+
+    ctrlAutoSizeToggle.addEventListener('change', () => {
+      manualQualityBox.classList.toggle('hidden', ctrlAutoSizeToggle.checked);
+    });
+
+    ctrlQuality.addEventListener('input', () => {
+      manualQualityVal.textContent = `${ctrlQuality.value}%`;
+    });
+
+    resetPresetBtn.addEventListener('click', () => {
+      syncModeUI();
+      if (state.sourceFile) processCurrentFile();
+      showToast('Reset to official exam preset.', 'info');
+    });
+
+    dropZone.addEventListener('click', () => fileInput.click());
+    dropZone.addEventListener('dragover', e => {
+      e.preventDefault();
+      dropZone.classList.add('border-indigo-600', 'bg-indigo-100/70');
+    });
+    dropZone.addEventListener('dragleave', () => {
+      dropZone.classList.remove('border-indigo-600', 'bg-indigo-100/70');
+    });
+    dropZone.addEventListener('drop', e => {
+      e.preventDefault();
+      dropZone.classList.remove('border-indigo-600', 'bg-indigo-100/70');
+      if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+        handleFileSelected(e.dataTransfer.files[0]);
+      }
+    });
+
+    fileInput.addEventListener('change', e => {
+      if (e.target.files && e.target.files[0]) {
+        handleFileSelected(e.target.files[0]);
+      }
+    });
+
+    processBtn.addEventListener('click', processCurrentFile);
+
+    downloadBtn.addEventListener('click', () => {
+      if (!state.outputUrl || !state.outputMeta) return;
+      const a = document.createElement('a');
+      const ext = state.outputMeta.isPdf ? 'pdf' : (ctrlFormat.value === 'image/png' ? 'png' : 'jpg');
+      a.href = state.outputUrl;
+      a.download = `${state.currentExamId}_${state.mode}.${ext}`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      showToast('Download started!', 'success');
+    });
+
+    // Boot
+    renderHome();
+  </script>
+</body>
+</html>
